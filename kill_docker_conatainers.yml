@@ -1,0 +1,23 @@
+---
+- name: Kill all running Docker containers
+  hosts: peppermint
+  become: true
+  tasks:
+    - name: Get list of running containers
+      command: docker ps -q
+      register: running_containers
+      changed_when: false
+
+    - name: Stop all running containers
+      docker_container:
+        name: "{{ item }}"
+        state: stopped
+      loop: "{{ running_containers.stdout_lines }}"
+      when: running_containers.stdout_lines | length > 0
+
+    - name: Remove all stopped containers
+      docker_container:
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ running_containers.stdout_lines }}"
+      when: running_containers.stdout_lines | length > 0
