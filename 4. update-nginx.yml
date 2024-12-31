@@ -1,0 +1,53 @@
+- name: Update NGINX configuration with SSL and reverse proxy
+  hosts: peppermint-server
+  become: yes
+  tasks:
+    - name: Configure NGINX with SSL and reverse proxy
+      copy:
+        dest: /etc/nginx/sites-available/peppermint-devops
+        content: |
+          server {
+              listen 80;
+              server_name peppermint-devops.be;
+
+              # Redirect HTTP traffic to HTTPS
+              return 301 https://$host$request_uri;
+          }
+
+          server {
+              listen 443 ssl;
+              server_name peppermint-devops.be;
+
+              ssl_certificate /etc/letsencrypt/live/peppermint-devops.be/fullchain.pem;
+              ssl_certificate_key /etc/letsencrypt/live/peppermint-devops.be/privkey.pem;
+
+              ssl_protocols TLSv1.2 TLSv1.3;
+              ssl_prefer_server_ciphers on;
+
+              # Reverse proxy to the Peppermint app
+              location / {
+                  proxy_pass http://localhost:3000;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host $host;
+                  proxy_cache_bypass $http_upgrade;
+              }
+
+              location /.well-known/acme-challenge/ {
+                  root /var/www/html;
+              }
+          }
+      notify: Reload NGINX
+
+    - name: Enable NGINX site configuration
+      file:
+        src: /etc/nginx/sites-available/peppermint-devops
+        dest: /etc/nginx/sites-enabled/peppermint-devops
+        state: link
+
+  handlers:
+    - name: Reload NGINX
+      service:
+        name: nginx
+        state: reloaded

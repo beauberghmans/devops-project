@@ -1,0 +1,61 @@
+---
+- name: Add Peppermint Server to LibreNMS
+  hosts: peppermint-server
+  become: yes
+  tasks:
+    - name: Ensure SNMP is installed
+      apt:
+        name: snmpd
+        state: present
+
+    - name: Configure SNMP
+      copy:
+        content: |
+          agentAddress udp:161
+          rocommunity public
+          sysLocation Peppermint Server
+          sysContact admin@example.com
+        dest: /etc/snmp/snmpd.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Restart SNMP service
+      service:
+        name: snmpd
+        state: restarted
+
+    - name: Check if device exists in LibreNMS
+      uri:
+        url: "https://librenms-devops.be/api/v0/devices/peppermint-devops.be"
+        method: GET
+        headers:
+          X-Auth-Token: "85dd9b4cdf118b110703a05c0e99adf9"
+        status_code: 200
+      register: device_check
+      failed_when: device_check.status != 200 and device_check.status != 404
+
+    - name: Add device to LibreNMS
+      uri:
+        url: "https://librenms-devops.be/api/v0/devices"
+        method: POST
+        body_format: json
+        headers:
+          X-Auth-Token: "85dd9b4cdf118b110703a05c0e99adf9"
+        body:
+          hostname: "peppermint-devops.be"
+          version: "v2c"
+          community: "public"
+        status_code: [200, 201]
+      when: device_check.status == 404
+
+  post_tasks:
+    - name: Print success message
+      debug:
+        msg: "Peppermint Server (172.236.220.105) successfully added to LibreNMS."
+      when: device_check.status == 404
+
+    - name: Print message if device already exists
+      debug:
+        msg: "Peppermint Server (172.236.220.105) already exists in LibreNMS."
+      when: device_check.status == 200

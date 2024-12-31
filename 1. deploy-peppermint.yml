@@ -1,0 +1,77 @@
+---
+- name: Deploy Peppermint application on host Peppermint
+  hosts: peppermint-server
+  become: true
+  vars:
+    compose_file_path: /opt/peppermint/docker-compose.yml
+    docker_compose_version: "1.29.2"  # Set a specific version for Docker Compose
+
+  tasks:
+    - name: Ensure Docker is installed
+      apt:
+        name: docker.io
+        state: present
+      tags: docker
+
+    - name: Ensure Docker Compose is installed
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-{{ ansible_system }}-{{ ansible_architecture }}"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+      tags: docker_compose
+
+    - name: Create directory for Peppermint deployment
+      file:
+        path: /opt/peppermint
+        state: directory
+        mode: '0755'
+
+    - name: Deploy Docker Compose configuration
+      copy:
+        dest: "{{ compose_file_path }}"
+        content: |
+          version: "3.1"
+
+          services:
+            peppermint_postgres:
+              container_name: peppermint_postgres
+              image: postgres:latest
+              restart: always
+              ports:
+                - 5432:5432
+              volumes:
+                - pgdata:/var/lib/postgresql/data
+              environment:
+                POSTGRES_USER: peppermint
+                POSTGRES_PASSWORD: 1234
+                POSTGRES_DB: peppermint
+
+            peppermint:
+              container_name: peppermint
+              image: pepperlabs/peppermint:latest
+              ports:
+                - 3000:3000
+                - 5003:5003
+              restart: always
+              depends_on:
+                - peppermint_postgres
+              environment:
+                DB_USERNAME: "peppermint"
+                DB_PASSWORD: "1234"
+                DB_HOST: "peppermint_postgres"
+                SECRET: 'peppermint4life'
+
+          volumes:
+            pgdata:
+
+    - name: Set permissions for the Docker Compose file
+      file:
+        path: "{{ compose_file_path }}"
+        mode: '0644'
+
+    - name: Pull and start the Peppermint services
+      shell: |
+        docker-compose -f "{{ compose_file_path }}" up -d
+      args:
+        chdir: /opt/peppermint
+      tags: docker_compose_up

@@ -1,0 +1,22 @@
+- name: Obtain SSL certificate with Certbot
+  hosts: peppermint-server
+  become: yes
+  tasks:
+    - name: Install Certbot and dependencies
+      apt:
+        name: 
+          - certbot
+          - python3-certbot-nginx
+        state: present
+
+    - name: Obtain SSL certificate
+      command:
+        cmd: >
+          certbot certonly --webroot
+          --webroot-path /var/www/html
+          -d peppermint-devops.be
+          --non-interactive
+          --agree-tos
+          --email admin@peppermint.com
+      register: certbot_result
+      failed_when: certbot_result.rc != 0
