@@ -36,15 +36,3 @@ The system is secured with **Let’s Encrypt SSL certificates** for both Pepperm
 ## 🛡️ Security
 
 - Let’s Encrypt free SSL certificates set up on both servers.
-
----
-
-## 🤝 Contributions
-
-Feel free to open issues or pull requests to improve the automation or add features.
-
----
-
-## 📄 License
-
-MIT License (or whichever license applies to your project)
